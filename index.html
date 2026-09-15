@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SENTRY | Intelligent Conveyor Belt Health Monitoring Using Sensors</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <!-- Chart.js for industrial real-time streaming telemetry -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="dashboard-wrapper">
+    <!-- ========================================================= -->
+    <!-- 1. HEADER SECTION                                         -->
+    <!-- ========================================================= -->
+    <header class="dashboard-header">
+      <div class="header-left">
+        <div class="brand-badge">
+          <div class="logo-radar">
+            <span class="radar-sweep"></span>
+            <svg class="radar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <div class="brand-row">
+              <h1 class="brand-title">SENTRY</h1>
+              <span class="brand-tag">v2.5 Hybrid IIoT</span>
+            </div>
+            <p class="brand-subtitle">INTELLIGENT CONVEYOR BELT HEALTH MONITORING USING SENSORS</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <!-- Live System Badges -->
+        <div class="system-pills">
+          <div class="live-indicator-pill">
+            <span class="live-dot pulse-green"></span>
+            <span class="pill-label">SYSTEM LIVE</span>
+          </div>
+          <div class="source-indicator-pill source-runtime" id="sourceIndicator">
+            <span class="source-dot" id="sourceDot"></span>
+            <span class="source-text" id="sourceText">🟢 4 SENSORS: SENSOR AI  |  🔴 LOAD: ESP32 LIVE</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="telemetry-clock">
+          <div class="clock-display" id="liveClock">00:00:00 AM</div>
+          <div class="date-display" id="liveDate">Wednesday, Sept 16, 2026</div>
+        </div>
+        <div class="updated-counter">
+          <span class="counter-dot"></span>
+          <span id="lastUpdatedText">Last Updated: Just now</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================================================= -->
+    <!-- HACKATHON DEMO & DATASET PLAYBACK CONTROL BAR             -->
+    <!-- ========================================================= -->
+    <section class="demo-control-bar">
+      <div class="control-group">
+        <span class="control-label">TELEMETRY & ACQUISITION:</span>
+        <div class="mode-toggle-group">
+          <button class="mode-btn active" id="btnModeRuntime" onclick="setDataSourceMode('runtime')">
+            <span class="btn-dot"></span> 🟢 Runtime Dataset
+          </button>
+          <button class="mode-btn" id="btnModeSynthetic" onclick="setDataSourceMode('synthetic')">
+            <span class="btn-dot"></span> 🟣 Synthetic AI
+          </button>
+          <button class="mode-btn" id="btnModeSimulator" onclick="setDataSourceMode('simulator')">
+            <span class="btn-dot"></span> 🧪 Simulator
+          </button>
+          <button class="mode-btn" id="btnModeESP32" onclick="setDataSourceMode('esp32')">
+            <span class="btn-dot"></span> 🔴 ESP32 Live
+          </button>
+          <button class="mode-btn mode-record-btn" id="btnModeRecord" onclick="openRuntimeDataRecorder()">
+            <span class="btn-dot rec-dot"></span> ⏺️ Take Runtime Data
+          </button>
+          <button class="mode-btn" id="btnModeUpload" onclick="triggerFileUpload()">
+            <span class="btn-dot"></span> 📁 Upload CSV
+          </button>
+        </div>
+        <!-- Hidden file input for custom dataset uploading -->
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
+      </div>
+
+      <!-- Live Dataset Playback Controls Toolbar -->
+      <div class="player-controls-area" id="playerControlsArea">
+        <div class="player-main-btns">
+          <button class="player-btn btn-playing" id="btnPlayerPlay" onclick="sentryPlayer.togglePlayPause()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            Pause
+          </button>
+          <button class="player-btn-icon" title="Step Backward" onclick="sentryPlayer.stepBackward()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <polygon points="19 20 9 12 19 4 19 20"></polygon>
+              <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line>
+            </svg>
+          </button>
+          <button class="player-btn-icon" title="Step Forward" onclick="sentryPlayer.stepForward()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <polygon points="5 4 15 12 5 20 5 4"></polygon>
+              <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line>
+            </svg>
+          </button>
+          <button class="player-btn-icon active" id="btnPlayerLoop" title="Loop: ON" onclick="sentryPlayer.toggleLoop()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="17 1 21 5 17 9"></polyline>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+              <polyline points="7 23 3 19 7 15"></polyline>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="player-scrubber-group">
+          <input type="range" class="player-timeline-slider" id="playerTimelineSlider" min="0" max="327" value="0" oninput="sentryPlayer.seek(parseInt(this.value))" />
+          <div class="player-counter">
+            Sample <strong id="playerCurrentIndex">1</strong> / <span id="playerTotalCount">328</span>
+          </div>
+          <div class="player-timestamp" id="playerRawTimestamp">T: 1653 ms</div>
+        </div>
+
+        <div class="player-speed-group">
+          <button class="speed-btn" data-speed="0.5" onclick="sentryPlayer.setSpeed(0.5)">0.5x</button>
+          <button class="speed-btn active" data-speed="1" onclick="sentryPlayer.setSpeed(1.0)">1x</button>
+          <button class="speed-btn" data-speed="2" onclick="sentryPlayer.setSpeed(2.0)">2x</button>
+          <button class="speed-btn" data-speed="5" onclick="sentryPlayer.setSpeed(5.0)">5x</button>
+          <button class="speed-btn" data-speed="10" onclick="sentryPlayer.setSpeed(10.0)">10x</button>
+        </div>
+
+        <span id="playerDatasetBadge" class="player-badge badge-runtime">runtime_data.csv (Sensor AI)</span>
+      </div>
+
+      <!-- Simulator scenario selector (Visible only in Simulator mode) -->
+      <div class="scenario-group" id="scenarioSelectorArea" style="display:none;">
+        <span class="control-label">SIMULATE FAULT:</span>
+        <div class="scenario-buttons">
+          <button class="scen-btn active" data-scenario="normal" onclick="triggerScenario('normal')">
+            🟢 Normal Running
+          </button>
+          <button class="scen-btn" data-scenario="bearing_temp" onclick="triggerScenario('bearing_temp')">
+            🟡 Bearing Overheat
+          </button>
+          <button class="scen-btn" data-scenario="high_vibration" onclick="triggerScenario('high_vibration')">
+            🔴 High Vibration
+          </button>
+          <button class="scen-btn" data-scenario="conveyor_jam" onclick="triggerScenario('conveyor_jam')">
+            🔴 Belt Slip / Jam
+          </button>
+          <button class="scen-btn" data-scenario="belt_sag" onclick="triggerScenario('belt_sag')">
+            🟡 Belt Sag / Misalign
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- 2. OVERALL CONVEYOR HEALTH STATUS (HERO BANNER)          -->
+    <!-- ========================================================= -->
+    <section class="overall-status-hero state-normal" id="overallStatusHero">
+      <div class="status-hero-main">
+        <div class="status-icon-ring" id="statusHeroIconRing">
+          <span class="status-big-icon" id="statusHeroIcon">🟢</span>
+        </div>
+        <div class="status-hero-details">
+          <div class="status-header-line">
+            <span class="status-caption">OVERALL CONVEYOR HEALTH STATUS</span>
+            <span class="status-chip" id="statusPill">NORMAL</span>
+            <span class="ground-truth-tag" id="groundTruthTag" style="display:none;"></span>
+          </div>
+          <h2 class="status-headline" id="statusHeroTitle">CONVEYOR OPERATING OPTIMALLY</h2>
+          <p class="status-explanation" id="statusHeroExplanation">
+            NORMAL = Parameters are within expected range. Machine dynamics are stable and synchronous.
+          </p>
+          <div class="status-legend">
+            <span class="leg-item"><strong class="col-normal">🟢 NORMAL:</strong> Nominal sensor telemetry</span>
+            <span class="leg-sep">•</span>
+            <span class="leg-item"><strong class="col-warning">🟡 WARNING:</strong> Abnormal sensor behavior detected</span>
+            <span class="leg-sep">•</span>
+            <span class="leg-item"><strong class="col-danger">🔴 HIGH RISK:</strong> Critical multi-sensor threshold breach</span>
+            <span class="leg-sep">•</span>
+            <span class="leg-item"><strong style="color:#c084fc;">🟣 SENSOR FAIL:</strong> Hardware/geometry fault</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-hero-metrics">
+        <div class="metric-card health-index-card">
+          <span class="metric-caption">HEALTH INDEX</span>
+          <div class="metric-value-row">
+            <span class="health-number" id="healthIndexVal">98</span>
+            <span class="health-unit">%</span>
+          </div>
+          <div class="health-bar-track">
+            <div class="health-bar-fill" id="healthBarFill" style="width: 98%;"></div>
+          </div>
+          <span class="metric-sub" id="healthSubText">Sensor AI Confidence: 98.4%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- 3. LIVE SENSOR MONITORING (4 SENSOR AI + 1 ESP32 LIVE)    -->
+    <!-- ========================================================= -->
+    <section class="section-container">
+      <div class="section-title-row">
+        <h3 class="section-title">
+          <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          LIVE SENSOR MONITORING
+        </h3>
+        <span class="section-meta">4 Sensors from Sensor AI • 1 Load Cell Live from ESP32</span>
+      </div>
+
+      <div class="sensor-cards-grid">
+        <!-- CARD 1: MLX90614 (Temperature) [Sensor AI] -->
+        <div class="sensor-card card-temp" id="cardMLX">
+          <div class="card-glow-bar"></div>
+          <div class="card-header">
+            <div class="sensor-id-col">
+              <span class="sensor-origin-badge origin-ai">🤖 SENSOR AI</span>
+              <span class="sensor-model">MLX90614</span>
+              <h4 class="sensor-name">Infrared Thermal Sensor</h4>
+            </div>
+            <div class="sensor-badge badge-normal" id="mlxBadge">NORMAL</div>
+          </div>
+
+          <div class="card-body">
+            <div class="primary-reading">
+              <span class="reading-icon">🌡️</span>
+              <div class="reading-val-group">
+                <div class="value-with-unit">
+                  <span class="reading-val" id="objTempVal">32.1</span>
+                  <span class="reading-unit">°C</span>
+                </div>
+                <span class="reading-label">Object / Belt Temperature</span>
+              </div>
+            </div>
+
+            <div class="secondary-reading-row">
+              <div class="sec-item">
+                <span class="sec-label">Room Temp:</span>
+                <span class="sec-val" id="roomTempVal">32.3 °C</span>
+              </div>
+              <div class="sec-item">
+                <span class="sec-label">Delta (ΔT):</span>
+                <span class="sec-val" id="deltaTempVal">-0.2 °C</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <div class="mini-gauge">
+              <div class="gauge-bar"><div class="gauge-fill" id="tempGaugeFill" style="width: 30%;"></div></div>
+              <div class="gauge-labels"><span>20°C</span><span>Warn: 38°C</span><span>Danger: 50°C</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: MPU6050 / MPU6500 (Vibration) [Sensor AI] -->
+        <div class="sensor-card card-vib" id="cardMPU">
+          <div class="card-glow-bar"></div>
+          <div class="card-header">
+            <div class="sensor-id-col">
+              <span class="sensor-origin-badge origin-ai">🤖 SENSOR AI</span>
+              <span class="sensor-model">MPU6050 / MPU6500</span>
+              <h4 class="sensor-name">6-Axis Vibration / IMU</h4>
+            </div>
+            <div class="sensor-badge badge-normal" id="mpuBadge">NORMAL</div>
+          </div>
+
+          <div class="card-body">
+            <div class="primary-reading">
+              <span class="reading-icon">📳</span>
+              <div class="reading-val-group">
+                <div class="value-with-unit">
+                  <span class="reading-val" id="vibrationVal">2.51</span>
+                  <span class="reading-unit">m/s²</span>
+                </div>
+                <span class="reading-label">RMS Vibration Intensity</span>
+              </div>
+            </div>
+
+            <div class="secondary-reading-row">
+              <div class="sec-item">
+                <span class="sec-label">Axis X:</span>
+                <span class="sec-val" id="vibAxisX">0.80</span>
+              </div>
+              <div class="sec-item">
+                <span class="sec-label">Axis Y:</span>
+                <span class="sec-val" id="vibAxisY">0.95</span>
+              </div>
+              <div class="sec-item">
+                <span class="sec-label">Axis Z:</span>
+                <span class="sec-val" id="vibAxisZ">2.16</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <div class="mini-gauge">
+              <div class="gauge-bar"><div class="gauge-fill" id="vibGaugeFill" style="width: 17%;"></div></div>
+              <div class="gauge-labels"><span>0.0</span><span>Warn: 10.0</span><span>Danger: 20.0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 3: AH49E (Speed / RPM) [Sensor AI] -->
+        <div class="sensor-card card-rpm" id="cardAH49E">
+          <div class="card-glow-bar"></div>
+          <div class="card-header">
+            <div class="sensor-id-col">
+              <span class="sensor-origin-badge origin-ai">🤖 SENSOR AI</span>
+              <span class="sensor-model">AH49E</span>
+              <h4 class="sensor-name">Hall Effect Speed Sensor</h4>
+            </div>
+            <div class="sensor-badge badge-normal" id="rpmBadge">NORMAL</div>
+          </div>
+
+          <div class="card-body">
+            <div class="primary-reading">
+              <span class="reading-icon">⚙️</span>
+              <div class="reading-val-group">
+                <div class="value-with-unit">
+                  <span class="reading-val" id="rpmVal">0</span>
+                  <span class="reading-unit">RPM</span>
+                </div>
+                <span class="reading-label">Conveyor Drive Speed</span>
+              </div>
+            </div>
+
+            <div class="secondary-reading-row">
+              <div class="sec-item">
+                <span class="sec-label">Belt Speed:</span>
+                <span class="sec-val" id="beltVelocityVal">0.00 m/s</span>
+              </div>
+              <div class="sec-item">
+                <span class="sec-label">Pulse Status:</span>
+                <span class="sec-val" id="slipRatioVal">Nominal</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <div class="mini-gauge">
+              <div class="gauge-bar"><div class="gauge-fill" id="rpmGaugeFill" style="width: 0%;"></div></div>
+              <div class="gauge-labels"><span>0 RPM</span><span>Nominal</span><span>Surge Alert</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 4: HC-SR04 (Ultrasonic Distance & Sag) [Sensor AI] -->
+        <div class="sensor-card card-dist" id="cardHCSR04">
+          <div class="card-glow-bar"></div>
+          <div class="card-header">
+            <div class="sensor-id-col">
+              <span class="sensor-origin-badge origin-ai">🤖 SENSOR AI</span>
+              <span class="sensor-model">HC-SR04</span>
+              <h4 class="sensor-name">Ultrasonic Distance / Sag</h4>
+            </div>
+            <div class="sensor-badge badge-normal" id="distBadge">NORMAL</div>
+          </div>
+
+          <div class="card-body">
+            <div class="primary-reading">
+              <span class="reading-icon">📏</span>
+              <div class="reading-val-group">
+                <div class="value-with-unit">
+                  <span class="reading-val" id="distVal">3.29</span>
+                  <span class="reading-unit">cm</span>
+                </div>
+                <span class="reading-label">Distance to Conveyor Belt</span>
+              </div>
+            </div>
+
+            <div class="secondary-reading-row">
+              <div class="sec-item">
+                <span class="sec-label">Belt Height:</span>
+                <span class="sec-val" id="beltHeightVal">10.71 cm</span>
+              </div>
+              <div class="sec-item">
+                <span class="sec-label">Sag Detection:</span>
+                <span class="sec-val" id="beltSagVal">0.8 cm (Slack)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <div class="mini-gauge">
+              <div class="gauge-bar"><div class="gauge-fill" id="distGaugeFill" style="width: 25%;"></div></div>
+              <div class="gauge-labels"><span>1.0 cm</span><span>Normal: 1-3cm</span><span>Sag: &gt;3cm</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 5: LOAD CELL (HX711) [🔴 LIVE DIRECTLY FROM ESP32] -->
+        <div class="sensor-card card-load-live" id="cardLoadCell">
+          <div class="card-glow-bar"></div>
+          <div class="card-header">
+            <div class="sensor-id-col">
+              <span class="sensor-origin-badge origin-esp32-live">
+                <span class="live-pulse-dot"></span> ESP32 LIVE
+              </span>
+              <span class="sensor-model">HX711 STRAIN GAUGE</span>
+              <h4 class="sensor-name">Material Weight Sensor</h4>
+            </div>
+            <div class="sensor-badge badge-normal" id="loadBadge">NORMAL</div>
+          </div>
+
+          <div class="card-body">
+            <div class="primary-reading">
+              <span class="reading-icon">⚖️</span>
+              <div class="reading-val-group">
+                <div class="value-with-unit">
+                  <span class="reading-val" id="loadVal" style="color:#fbbf24;">0.0</span>
+                  <span class="reading-unit">kg</span>
+                </div>
+                <span class="reading-label">Material Load on Conveyor</span>
+              </div>
+            </div>
+
+            <div class="secondary-reading-row">
+              <div class="sec-item">
+                <span class="sec-label">Capacity Utilized:</span>
+                <span class="sec-val" id="loadCapacityVal">0.0%</span>
+              </div>
+              <div class="sec-item">
+                <span class="sec-label">ESP32 Status:</span>
+                <span class="sec-val" id="loadHwStatus" style="font-weight:700;">STANDBY</span>
+              </div>
+            </div>
+
+            <!-- Direct USB WebSerial connection & live test slider -->
+            <div class="load-quick-actions">
+              <button class="btn-webserial" id="btnWebSerial" onclick="connectWebSerial()" title="Direct USB connect in Chrome/Edge">
+                🔌 Connect ESP32 USB
+              </button>
+              <input type="range" min="0" max="100" step="0.5" value="0" style="flex:1; height:4px; accent-color:#f59e0b;" oninput="setLiveLoad(this.value)" title="Simulate physical weight on scale" />
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <div class="mini-gauge">
+              <div class="gauge-bar"><div class="gauge-fill" id="loadGaugeFill" style="width: 0%; background: linear-gradient(90deg, #f59e0b, #ef4444);"></div></div>
+              <div class="gauge-labels"><span>0 kg</span><span>Warn: 60 kg</span><span>Max: 100 kg</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- 4. SENSOR ML ANALYSIS & 6. LIVE ALERTS / 7. CONNECTION    -->
+    <!-- ========================================================= -->
+    <div class="two-column-layout">
+      <!-- 4. SENSOR ML ANALYSIS -->
+      <section class="ml-analysis-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <div class="ai-badge-pulse">
+              <span class="ai-core-icon">🤖</span>
+            </div>
+            <div>
+              <h3 class="panel-title">SENSOR AI ANOMALY CLASSIFIER</h3>
+              <p class="panel-subtitle">Multi-Sensor Pattern Classifier Trained on 4 Physical Sensors</p>
+            </div>
+          </div>
+          <div class="ml-status-tag">
+            <span class="dot-blink-green"></span>
+            <span>MODEL ACTIVE</span>
+          </div>
+        </div>
+
+        <div class="ml-body">
+          <!-- ML Feature Inputs Grid (6 Telemetry Features from the 4 Sensors) -->
+          <div class="ml-inputs-box">
+            <div class="ml-inputs-header">
+              <span class="inputs-title">CURRENT 4-SENSOR FEATURE VECTOR (6 INPUTS):</span>
+              <span class="inputs-badge">Sensor AI Tensor</span>
+            </div>
+            <div class="feature-pills-grid">
+              <div class="feature-pill">
+                <span class="feat-name">Vibration (MPU)</span>
+                <span class="feat-val" id="mlFeatVib">2.51 m/s²</span>
+              </div>
+              <div class="feature-pill">
+                <span class="feat-name">Speed (AH49E)</span>
+                <span class="feat-val" id="mlFeatRPM">0 RPM</span>
+              </div>
+              <div class="feature-pill">
+                <span class="feat-name">Object Temp (MLX)</span>
+                <span class="feat-val" id="mlFeatObjTemp">32.1 °C</span>
+              </div>
+              <div class="feature-pill">
+                <span class="feat-name">Room Temp (MLX)</span>
+                <span class="feat-val" id="mlFeatRoomTemp">32.3 °C</span>
+              </div>
+              <div class="feature-pill">
+                <span class="feat-name">Distance (HC-SR04)</span>
+                <span class="feat-val" id="mlFeatDist">3.29 cm</span>
+              </div>
+              <div class="feature-pill">
+                <span class="feat-name">Belt Height (Ground)</span>
+                <span class="feat-val" id="mlFeatHeight">10.71 cm</span>
+              </div>
+            </div>
+
+            <!-- Architecture Specification Note -->
+            <div class="ml-spec-callout">
+              <div class="callout-icon">ℹ️</div>
+              <div class="callout-content">
+                <strong>Hybrid Telemetry Architecture:</strong>
+                <span>The 4 conveyor health sensors (Vibration, Speed, Temperatures, Distance & Height) are continuously evaluated by the <strong>Sensor AI</strong> anomaly detector. The <strong>Load Cell (HX711)</strong> provides <strong>LIVE physical strain readings directly from the ESP32 hardware</strong> to monitor operational payload limits independently.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ML Prediction Result Card -->
+          <div class="ml-prediction-card" id="mlPredictionCard">
+            <div class="pred-top">
+              <div class="pred-label-col">
+                <span class="pred-caption">AI PREDICTION RESULT (4 SENSORS)</span>
+                <div class="pred-state-badge" id="mlStateBadge">
+                  <span class="state-icon" id="mlStateIcon">🟢</span>
+                  <span class="state-text" id="mlStateText">NORMAL</span>
+                </div>
+              </div>
+
+              <div class="pred-metric-col">
+                <span class="conf-caption">CONFIDENCE</span>
+                <span class="conf-value" id="mlConfidenceVal">98.4%</span>
+              </div>
+            </div>
+
+            <div class="pred-diagnostics">
+              <div class="diag-title">DIAGNOSTIC INFERENCE:</div>
+              <div class="diag-message" id="mlDiagnosticMsg">
+                All 4 physical sensors correlate within nominal operational bounds. Drive shaft harmonics stable; bearing thermal gradient nominal.
+              </div>
+            </div>
+
+            <div class="pred-scores-bar">
+              <div class="score-item">
+                <span class="sc-label">Normal Prob:</span>
+                <div class="sc-bar"><div class="sc-fill fill-green" id="probNormal" style="width: 98%;"></div></div>
+                <span class="sc-num" id="probNormalNum">98%</span>
+              </div>
+              <div class="score-item">
+                <span class="sc-label">Warning Prob:</span>
+                <div class="sc-bar"><div class="sc-fill fill-amber" id="probWarning" style="width: 2%;"></div></div>
+                <span class="sc-num" id="probWarningNum">2%</span>
+              </div>
+              <div class="score-item">
+                <span class="sc-label">Danger / Fail Prob:</span>
+                <div class="sc-bar"><div class="sc-fill fill-red" id="probDanger" style="width: 0%;"></div></div>
+                <span class="sc-num" id="probDangerNum">0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT SIDE: 6. LIVE ALERTS & 7. SYSTEM CONNECTION -->
+      <div class="sidebar-panels">
+        <!-- 6. LIVE ALERTS -->
+        <section class="alerts-panel">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <span class="panel-icon">🚨</span>
+              <h3 class="panel-title">LIVE ALERTS & LOGS</h3>
+            </div>
+            <div class="alert-count-pill" id="alertCountBadge">0 ACTIVE</div>
+          </div>
+
+          <div class="alerts-list" id="alertsContainer">
+            <!-- Empty state default -->
+            <div class="alert-empty-state" id="alertEmptyState">
+              <span class="empty-icon">🟢</span>
+              <div class="empty-text-group">
+                <strong>NO ACTIVE ALERTS</strong>
+                <span>All 4 physical sensors and load cell operating normally within nominal boundaries.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. SYSTEM CONNECTION STATUS -->
+        <section class="connection-panel">
+          <div class="panel-header">
+            <div class="panel-title-group">
+              <span class="panel-icon">🔌</span>
+              <h3 class="panel-title">SYSTEM CONNECTION</h3>
+            </div>
+            <span class="heartbeat-pulse" id="heartbeatDot"></span>
+          </div>
+
+          <div class="connection-grid">
+            <div class="conn-item">
+              <div class="conn-name">ESP32 LOAD</div>
+              <div class="conn-status status-connected" id="connESP32">
+                <span class="conn-dot"></span>
+                <span class="conn-text">CONNECTED</span>
+              </div>
+            </div>
+
+            <div class="conn-item">
+              <div class="conn-name">SERIAL COM3</div>
+              <div class="conn-status status-connected" id="connCOM3">
+                <span class="conn-dot"></span>
+                <span class="conn-text">PORT READY</span>
+              </div>
+            </div>
+
+            <div class="conn-item">
+              <div class="conn-name">SENSOR AI</div>
+              <div class="conn-status status-connected" id="connML">
+                <span class="conn-dot"></span>
+                <span class="conn-text">AI READY</span>
+              </div>
+            </div>
+
+            <div class="conn-item">
+              <div class="conn-name">DATA STREAM</div>
+              <div class="conn-status status-connected" id="connData">
+                <span class="conn-dot"></span>
+                <span class="conn-text">HYBRID</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="connection-meta">
+            <div class="meta-row">
+              <span class="meta-lbl">Last packet:</span>
+              <span class="meta-val" id="lastPacketReceived">1 second ago</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-lbl">4 AI Sensors:</span>
+              <span class="meta-val">MLX90614, MPU, AH49E, HC-SR04</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-lbl">Load Cell:</span>
+              <span class="meta-val">HX711 Live on ESP32</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- 5. LIVE SENSOR GRAPHS (4 SENSOR AI + 1 ESP32 LIVE LOAD)   -->
+    <!-- ========================================================= -->
+    <section class="section-container charts-section">
+      <div class="section-title-row">
+        <h3 class="section-title">
+          <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          LIVE SENSOR TELEMETRY GRAPHS
+        </h3>
+        <span class="section-meta">4 Sensor AI Graphs • 1 Live ESP32 Hardware Load Graph</span>
+      </div>
+
+      <div class="charts-grid">
+        <!-- Chart 1: Temperature vs Time [Sensor AI] -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-group">
+              <span class="chart-dot col-orange-dot"></span>
+              <span class="chart-title">TEMPERATURE VS TIME (MLX90614)</span>
+            </div>
+            <div class="chart-legend-custom">
+              <span class="leg-box obj-temp-leg"></span> Object (°C)
+              <span class="leg-box room-temp-leg"></span> Room (°C)
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="tempChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Vibration vs Time [Sensor AI] -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-group">
+              <span class="chart-dot col-purple-dot"></span>
+              <span class="chart-title">VIBRATION VS TIME (MPU6050 / MPU6500)</span>
+            </div>
+            <span class="chart-unit-badge">m/s² RMS</span>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="vibChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 3: RPM vs Time [Sensor AI] -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-group">
+              <span class="chart-dot col-cyan-dot"></span>
+              <span class="chart-title">CONVEYOR SPEED VS TIME (AH49E)</span>
+            </div>
+            <span class="chart-unit-badge">RPM</span>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="rpmChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 4: Distance & Belt Height vs Time [Sensor AI] -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-group">
+              <span class="chart-dot col-green-dot"></span>
+              <span class="chart-title">DISTANCE & BELT HEIGHT (HC-SR04)</span>
+            </div>
+            <div class="chart-legend-custom">
+              <span class="leg-box" style="background:#10b981;"></span> Distance (cm)
+              <span class="leg-box" style="background:#6366f1;"></span> Belt Height (cm)
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="distChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 5: Belt Material Load vs Time [🔴 LIVE FROM ESP32] -->
+        <div class="chart-card chart-card-load">
+          <div class="chart-header">
+            <div class="chart-title-group">
+              <span class="chart-dot" style="background:#f59e0b;"></span>
+              <span class="chart-title">BELT MATERIAL LOAD (HX711 - ESP32 LIVE)</span>
+            </div>
+            <span class="chart-unit-badge" style="color:#fbbf24; border-color:rgba(245,158,11,0.4);">
+              <span class="live-pulse-dot" style="display:inline-block; margin-right:4px;"></span>
+              Live kg
+            </span>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="loadChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- FOOTER / INTEGRATION MODAL TRIGGER                        -->
+    <!-- ========================================================= -->
+    <footer class="dashboard-footer">
+      <div class="footer-left">
+        <span><strong>SENTRY IoT</strong> • Hybrid Conveyor Health Monitoring System</span>
+        <span class="footer-sep">|</span>
+        <span>4 Sensors from Sensor AI • Live Load Cell from ESP32</span>
+      </div>
+      <div class="footer-right">
+        <button class="footer-btn" onclick="openArchModal()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          Hardware & AI Architecture Map
+        </button>
+      </div>
+    </footer>
+
+    <!-- Hardware & Backend Architecture Modal -->
+    <div class="modal-backdrop" id="archModal">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 class="modal-title">SENTRY Hybrid Physical & AI Architecture Pipeline</h3>
+          <button class="modal-close" onclick="closeArchModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="pipeline-flow">
+            <div class="pipe-step">
+              <div class="pipe-num">1</div>
+              <div class="pipe-content">
+                <strong>4 Conveyor Health Sensors (Sensor AI)</strong>
+                <p>MLX90614 (Temperatures), MPU6050/6500 (Vibration), AH49E (Hall Speed), and HC-SR04 (Ultrasonic Distance/Sag) are fed from the physical runtime dataset & evaluated by the Sensor AI model.</p>
+                <code>Sources: data/runtime_data.csv & js/ai_model.js</code>
+              </div>
+            </div>
+            <div class="pipe-arrow">➕ Combined in Real Time</div>
+            <div class="pipe-step">
+              <div class="pipe-num">2</div>
+              <div class="pipe-content">
+                <strong>1 Material Load Cell (Live ESP32 Hardware)</strong>
+                <p>HX711 Strain Gauge Weight Sensor connected to ESP32 (DT=GPIO 4, SCK=GPIO 16) transmits real live conveyor load directly via USB Serial (115200 baud) or Web Serial API.</p>
+                <code>Hardware: ESP32 Load Cell (COM3)</code>
+              </div>
+            </div>
+            <div class="pipe-arrow">↓ Real-Time Synchronous Telemetry Feed</div>
+            <div class="pipe-step">
+              <div class="pipe-num">3</div>
+              <div class="pipe-content">
+                <strong>SENTRY Hybrid Web Dashboard</strong>
+                <p>Displays live 5-sensor monitoring, 5 continuous Chart.js streaming graphs, AI fault diagnostics, and immediate overload alert notifications.</p>
+                <code>Files: index.html, js/dataset_player.js, js/charts.js, js/app.js</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ========================================================= -->
+    <!-- 5-SENSOR RUNTIME DATA ACQUISITION MODAL                   -->
+    <!-- ========================================================= -->
+    <div class="modal-backdrop rec-modal-backdrop" id="runtimeRecorderModal" style="display: none;">
+      <div class="modal-dialog rec-modal-dialog">
+        <div class="modal-header rec-modal-header">
+          <div class="rec-title-wrap">
+            <h3 class="modal-title">
+              <span class="rec-live-icon">⏺️</span> 5-Sensor Runtime Data Acquisition Console
+            </h3>
+            <p class="rec-subtitle">Capture, record, and export live runtime datasets across all 5 physical sensors (MLX90614, MPU6500, AH49E, HC-SR04, Load Cell HX711)</p>
+          </div>
+          <button class="modal-close" onclick="closeRuntimeDataRecorder()">&times;</button>
+        </div>
+
+        <div class="modal-body rec-modal-body">
+          <!-- Acquisition Top Control Ribbon -->
+          <div class="rec-control-ribbon">
+            <!-- Source Selector -->
+            <div class="rec-ctrl-item">
+              <label class="rec-ctrl-label">ACQUISITION SOURCE:</label>
+              <select class="rec-select" id="recSourceSelect" onchange="runtimeRecorder.source = this.value">
+                <option value="hybrid" selected>🟢 Hybrid (4 AI Sensors + ESP32 Live Load)</option>
+                <option value="esp32">🔴 Full Hardware (All 5 Sensors Live from ESP32 COM3)</option>
+                <option value="simulator">🧪 Simulated Testbench (Controlled Fault Scenarios)</option>
+              </select>
+            </div>
+
+            <!-- Sampling Rate Selector -->
+            <div class="rec-ctrl-item">
+              <label class="rec-ctrl-label">SAMPLING RATE:</label>
+              <div class="rec-rate-pills">
+                <button class="rate-pill active" onclick="setRecRate(1000, this)">1 Hz (1s)</button>
+                <button class="rate-pill" onclick="setRecRate(500, this)">2 Hz (500ms)</button>
+                <button class="rate-pill" onclick="setRecRate(200, this)">5 Hz (200ms)</button>
+                <button class="rate-pill" onclick="setRecRate(100, this)">10 Hz (100ms)</button>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="rec-action-btns">
+              <button class="rec-btn btn-rec-start" id="btnRecStart" onclick="runtimeRecorder.startRecording()">
+                ▶️ Start Recording
+              </button>
+              <button class="rec-btn btn-rec-pause" id="btnRecPause" onclick="runtimeRecorder.pauseRecording()" style="display:none;">
+                ⏸️ Pause
+              </button>
+              <button class="rec-btn btn-rec-stop" id="btnRecStop" onclick="runtimeRecorder.stopRecording()" disabled>
+                ⏹️ Stop
+              </button>
+              <button class="rec-btn btn-rec-export" id="btnRecExport" onclick="runtimeRecorder.exportCSV()" disabled>
+                📥 Export runtime_data.csv
+              </button>
+              <button class="rec-btn btn-rec-replay" id="btnRecReplay" onclick="runtimeRecorder.loadIntoDashboard()" disabled>
+                ⚡ Load into Dashboard
+              </button>
+              <button class="rec-btn btn-rec-clear" onclick="runtimeRecorder.clearData()" title="Clear captured buffer">
+                🗑️ Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Status Bar -->
+          <div class="rec-metrics-bar">
+            <div class="rec-metric-card">
+              <span class="rec-metric-label">STATUS</span>
+              <div class="rec-status-pill idle" id="recStatusPill">
+                <span class="rec-status-dot"></span> ⚪ STANDBY (READY)
+              </div>
+            </div>
+            <div class="rec-metric-card">
+              <span class="rec-metric-label">SAMPLES LOGGED</span>
+              <span class="rec-metric-value" id="recSampleCount">0</span>
+            </div>
+            <div class="rec-metric-card">
+              <span class="rec-metric-label">ELAPSED TIME</span>
+              <span class="rec-metric-value" id="recTimerDisplay">00:00</span>
+            </div>
+            <div class="rec-metric-card">
+              <span class="rec-metric-label">5-SENSOR SCOPE</span>
+              <span class="rec-metric-sub">Temp • Vib • RPM • Dist • Load</span>
+            </div>
+          </div>
+
+          <!-- Live Table Preview -->
+          <div class="rec-table-wrap">
+            <div class="rec-table-header-info">
+              <span>LIVE BUFFER PREVIEW (LAST 20 SAMPLES CAPTURED IN RUNTIME)</span>
+              <span class="rec-schema-tag">Strict CSV Schema: runtime_data.csv</span>
+            </div>
+            <div class="rec-table-container">
+              <table class="rec-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Timestamp</th>
+                    <th>Vibration (m/s²)</th>
+                    <th>RPM</th>
+                    <th>Obj Temp</th>
+                    <th>Room Temp</th>
+                    <th>Distance</th>
+                    <th>Belt Height</th>
+                    <th>Load (kg)</th>
+                    <th>Overall Status</th>
+                  </tr>
+                </thead>
+                <tbody id="recTableBody">
+                  <tr class="rec-empty-row">
+                    <td colspan="10">No runtime data captured yet. Click "Start Recording" to take live samples.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CSV Export Specification Note -->
+          <div class="rec-note-box">
+            <strong>📋 Dataset Export Note:</strong> Clicking <em>"Export runtime_data.csv"</em> generates a complete dataset containing all 16 standardized features (timestamp, 5 sensor physical metrics, sensor condition flags, health status, and alert codes) perfectly formatted for retraining the SENTRY AI pattern classifier!
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts: Datasets, AI Model, Player, Charts, and Coordinator -->
+  <script src="js/runtime_data.js"></script>
+  <script src="js/synthetic_data.js"></script>
+  <script src="js/ai_model.js"></script>
+  <script src="js/dataset_player.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/simulator.js"></script>
+  <script src="js/runtime_recorder.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
